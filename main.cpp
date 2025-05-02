@@ -22,6 +22,7 @@ int main(int argc, char *argv[]) {
         for (std::string event; std::getline(file, event);) {
             if (club.handle_event(event)) return 1;
         }
+        club.close();
     }
     catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;

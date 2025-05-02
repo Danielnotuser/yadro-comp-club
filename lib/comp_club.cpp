@@ -32,6 +32,7 @@ CompClub::CompClub(int table_num, const std::string &open, const std::string& cl
     close_time = str_to_time(close);
     revenue = std::vector<int>(table_num, 0);
     occupy_time = std::vector<std::pair<int, int>>(table_num, std::make_pair(0, 0));
+    previous_event_time = {-1, -1};
     std::cout << open << std::endl;
 }
 
@@ -48,21 +49,18 @@ void CompClub::generate_error(const std::string &time, int error)
     }
 }
 
-bool CompClub::correct_time(const std::string &time)
+bool CompClub::correct_time(std::pair<int, int> time)
 {
-    if (time.size() != 5 || time.find(':') != 2)
-        throw std::runtime_error("Invalid time format.");
-    std::pair<int, int> h_m = str_to_time(time);
-    if (h_m.first < 0 || h_m.first > 23 || h_m.second < 0 || h_m.second > 59)
+    if (time.first < 0 || time.first > 23 || time.second < 0 || time.second > 59)
         throw std::runtime_error("Invalid number of hours or minutes.");
     if (previous_event_time.first != -1 && previous_event_time.second != -1) {
-        if (h_m.first < previous_event_time.first ||
-        (h_m.first == previous_event_time.first && h_m.second < previous_event_time.second))
+        if (time.first < previous_event_time.first ||
+        (time.first == previous_event_time.first && time.second < previous_event_time.second))
             throw std::runtime_error("The event time does not follow the previous one.");
     }
-    else if (h_m.first < open_time.first || (h_m.first == open_time.first && h_m.second < open_time.second))
+    else if (time.first < open_time.first || (time.first == open_time.first && time.second < open_time.second))
         return false;
-    previous_event_time = h_m;
+    previous_event_time = time;
     return true;
 }
 
@@ -71,11 +69,14 @@ int CompClub::handle_event(const std::string &event)
     std::cout << event << std::endl;
     std::istringstream iss(event);
     try {
-        std::string time, client_name;
+        std::string str_time, client_name;
         int id;
-        iss >> time;
+        iss >> str_time;
+        if (str_time.size() != 5 || str_time.find(':') != 2)
+            throw std::runtime_error("Invalid time format.");
+        std::pair<int, int> time = str_to_time(str_time);
         if (!correct_time(time)) {
-            generate_error(time, NotOpenYet);
+            generate_error(str_time, NotOpenYet);
             return 0;
         }
         iss >> id >> client_name;
@@ -88,7 +89,7 @@ int CompClub::handle_event(const std::string &event)
             case 4: err = client_leave(time, client_name); break;
             default: throw std::invalid_argument("Invalid ID number.");
         }
-        if (err) generate_error(time, err);
+        if (err) generate_error(str_time, err);
         return 0;
     }
     catch(const std::exception &e) {
@@ -132,8 +133,6 @@ void CompClub::table_leave(std::pair<int, int> end_time, const std::shared_ptr<C
         generate_occupy(end_time, cl->table);
 }
 
-
-
 int CompClub::client_arrive(const std::string &name)
 {
     if (clients.contains(name))
@@ -142,7 +141,7 @@ int CompClub::client_arrive(const std::string &name)
     return 0;
 }
 
-int CompClub::client_occupy(const std::string &time, const std::string &name, int table)
+int CompClub::client_occupy(std::pair<int, int> time, const std::string &name, int table)
 {
     if (!clients.contains(name))
         return ClientUnknown;
@@ -151,41 +150,39 @@ int CompClub::client_occupy(const std::string &time, const std::string &name, in
     if (tables.contains(table))
         return PlaceIsBusy;
     std::shared_ptr<Client> cl = clients[name];
-    std::pair<int, int> h_m = str_to_time(time);
     if (cl->table)
-        table_leave(h_m, cl);
+        table_leave(time, cl);
     tables[table] = cl;
     cl->table = table;
-    cl->start_time = h_m;
+    cl->start_time = time;
     return 0;
 }
 
-int CompClub::client_wait(const std::string &time, const std::string &name)
+int CompClub::client_wait(std::pair<int, int> time, const std::string &name)
 {
     if (!clients.contains(name))
         return ClientUnknown;
     if (tables.size() < table_num)
         return ICanWaitNoLonger;
     if (wait_q.size() + 1 > table_num) {
-        generate_leave(str_to_time(time), clients[name]);
+        generate_leave(time, clients[name]);
         return 0;
     }
     wait_q.push(clients[name]);
     return 0;
 }
 
-int CompClub::client_leave(const std::string &time, const std::string &name)
+int CompClub::client_leave(std::pair<int, int> time, const std::string &name)
 {
     if (!clients.contains(name))
         return ClientUnknown;
-    std::pair<int, int> h_m = str_to_time(time);
     if (clients[name]->table)
-        table_leave(h_m, clients[name]);
+        table_leave(time, clients[name]);
     clients.erase(name);
     return 0;
 }
 
-CompClub::~CompClub()
+void CompClub::close()
 {
     for (auto & client : clients)
         generate_leave(close_time, client.second);

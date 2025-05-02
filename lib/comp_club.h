@@ -12,7 +12,7 @@ class CompClub {
 private:
     typedef struct Client {
         std::string name;
-        int table;
+        int table{};
         std::pair<int, int> start_time;
         Client() = default;
         explicit Client(const std::string &name) : name(name), table(0), start_time(-1, -1) {};
@@ -30,16 +30,16 @@ private:
     std::queue<std::shared_ptr<Client>> wait_q;
     std::map<std::string, std::shared_ptr<Client>> clients;
 
-    std::pair<int, int> previous_event_time = {-1, -1};
+    std::pair<int, int> previous_event_time;
     static std::pair<int, int> str_to_time(const std::string &);
     static std::string time_to_str(const std::pair<int, int>&);
-    bool correct_time(const std::string&);
+    bool correct_time(std::pair<int, int>);
     void table_leave(std::pair<int, int>, const std::shared_ptr<Client>&);
 
     int client_arrive(const std::string&);
-    int client_occupy(const std::string&, const std::string&, int);
-    int client_wait(const std::string &, const std::string&);
-    int client_leave(const std::string&, const std::string&);
+    int client_occupy(std::pair<int, int>, const std::string&, int);
+    int client_wait(std::pair<int, int>, const std::string&);
+    int client_leave(std::pair<int, int>, const std::string&);
 
     static void generate_error(const std::string&, int);
     void generate_occupy(std::pair<int, int>, int);
@@ -49,7 +49,8 @@ public:
 
     int handle_event(const std::string&);
 
-    ~CompClub();
+    void close();
+    ~CompClub() = default;
 };
 
 #endif //COMP_CLUB_COMP_CLUB_H

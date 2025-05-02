@@ -3,5 +3,8 @@ project(comp_club)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(comp_club main.cpp
-        lib/compclub.cpp)
+add_library(comp_lib lib/comp_club.cpp lib/comp_club.h)
+
+add_executable(main main.cpp)
+
+target_link_libraries(main comp_lib)

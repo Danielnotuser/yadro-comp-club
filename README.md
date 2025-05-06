@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project simulates the operation of a computer club, handling client arrivals, table assignments, waiting queues, and generating reports. The implementation follows specific business rules and time management requirements.
+This project simulates the operation of a computer club, handling client arrivals, table assignments, waiting queues, generating reports, etc.
 
 ## Build Instructions
 

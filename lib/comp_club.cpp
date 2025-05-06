@@ -24,14 +24,21 @@ std::string CompClub::time_to_str(const std::pair<int, int> &time)
     return res;
 }
 
-CompClub::CompClub(int table_num, const std::string &open, const std::string& close, int hour_price) : table_num(table_num), hour_price(hour_price)
+CompClub::CompClub(int table_num, const std::string &open, const std::string& close, int hour_price)
 {
+    if (table_num <= 0) throw std::invalid_argument("Invalid table number.");
+    if (hour_price <= 0) throw std::invalid_argument("Invalid hour price.");
+    CompClub::table_num = table_num;
+    CompClub::hour_price = hour_price;
     if (open.size() != 5 || open.find(':') != 2 || close.size() != 5 || close.find(':') != 2)
         throw std::runtime_error("Invalid open or close time.");
     open_time = str_to_time(open);
     close_time = str_to_time(close);
-    revenue = std::vector<int>(table_num, 0);
-    occupy_time = std::vector<std::pair<int, int>>(table_num, std::make_pair(0, 0));
+    if ((open_time.first < 0 || open_time.first > 23 || open_time.second < 0 || open_time.second > 59) ||
+        (close_time.first < 0 || close_time.first > 23 || close_time.second < 0 || close_time.second > 59))
+        throw std::runtime_error("Invalid number of hours or minutes in open/close time.");
+    revenue = std::vector(table_num, 0);
+    occupy_time = std::vector(table_num, std::make_pair(0, 0));
     previous_event_time = {-1, -1};
     std::cout << open << std::endl;
 }
@@ -53,13 +60,35 @@ bool CompClub::correct_time(std::pair<int, int> time)
 {
     if (time.first < 0 || time.first > 23 || time.second < 0 || time.second > 59)
         throw std::runtime_error("Invalid number of hours or minutes.");
+    // If open time is greater than close time (e.g. 23:00 - 02:00)
+    bool after_midnight = (close_time.first < open_time.first || (close_time.first == open_time.first && close_time.second < open_time.second));
+    // If there was an event earlier
     if (previous_event_time.first != -1 && previous_event_time.second != -1) {
+        // If our event is earlier than previous
         if (time.first < previous_event_time.first ||
-        (time.first == previous_event_time.first && time.second < previous_event_time.second))
-            throw std::runtime_error("The event time does not follow the previous one.");
+        (time.first == previous_event_time.first && time.second < previous_event_time.second)) {
+            if (after_midnight && (previous_event_time.first > open_time.first || previous_event_time.first == open_time.first && previous_event_time.second >= open_time.second)) {
+                if ((time.first > close_time.first || (time.first == close_time.first && time.second > close_time.second)))
+                    throw std::runtime_error("The event time does not follow the previous one.");
+            }
+            else if (!after_midnight)
+                throw std::runtime_error("The event time does not follow the previous one.");
+        }
+        else if ((!after_midnight && (time.first > close_time.first || (time.first == close_time.first && time.second > close_time.second))) ||
+            (after_midnight && (previous_event_time.first < open_time.first || (previous_event_time.first == open_time.first && previous_event_time.second < open_time.second)) &&
+                (time.first > close_time.first || (time.first == close_time.first && time.second > close_time.second))))
+            throw std::runtime_error("The event time exceeded the club's opening hours.");
     }
-    else if (time.first < open_time.first || (time.first == open_time.first && time.second < open_time.second))
-        return false;
+    // If it is the first event
+    else {
+        // Checks if our event is out of work time
+        if (!after_midnight && ((time.first < open_time.first || (time.first == open_time.first && time.second < open_time.second)) ||
+            (time.first > close_time.first || (time.first == close_time.first && time.second > close_time.second))))
+            return false;
+        if (after_midnight && ((time.first < open_time.first || (time.first == open_time.first && time.second < open_time.second)) &&
+            (time.first > close_time.first || (time.first == close_time.first && time.second > close_time.second))))
+            return false;
+    }
     previous_event_time = time;
     return true;
 }
@@ -184,8 +213,9 @@ int CompClub::client_leave(std::pair<int, int> time, const std::string &name)
 
 void CompClub::close()
 {
-    for (auto & client : clients)
-        generate_leave(close_time, client.second);
+    while (!clients.empty()) {
+        generate_leave(close_time, clients.begin()->second);
+    }
     std::cout << time_to_str(close_time) << std::endl;
     for (int t = 0; t < table_num; t++) {
         std::cout << t + 1 << " " << revenue[t] << " " << time_to_str(occupy_time[t]) << std::endl;

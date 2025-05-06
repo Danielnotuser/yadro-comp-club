@@ -6,7 +6,7 @@ This project simulates the operation of a computer club, handling client arrival
 
 ## Build Instructions
 
-### Prerequisites
+### Dependencies
 - CMake 3.28 or higher
 - C++20 compatible compiler
 - Catch2 v3 (for testing)
